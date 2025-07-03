@@ -6,30 +6,34 @@ from lib import extrator
 
 st.set_page_config(page_title="PANDA_PDF", layout="centered")
 
-senha_correta = "rosa123"
+SENHA_CORRETA = "rosa123"
 
+# Inicializa estado de login
 if "logado" not in st.session_state:
-    st.session_state["logado"] = False
+    st.session_state.logado = False
 
-if not st.session_state["logado"]:
+def pagina_login():
     st.title("🐼 PANDA_PDF - Login")
-    
-    with st.form("login_form"):
-        senha_digitada = st.text_input("Digite a senha para acessar:", type="password")
-        submitted = st.form_submit_button("Entrar")
-    
-    if submitted:
-        if senha_digitada == senha_correta:
-            st.session_state["logado"] = True
+    senha = st.text_input("Digite a senha para acessar:", type="password")
+    if st.button("Entrar"):
+        if senha == SENHA_CORRETA:
+            st.session_state.logado = True
             st.experimental_rerun()
         else:
             st.error("Senha incorreta! Tente novamente.")
     st.stop()
 
-# ----- APP PRINCIPAL -----
+if not st.session_state.logado:
+    pagina_login()
+
+# --- Se chegou aqui, está logado ---
 st.title("🐼 PANDA_PDF - Extração com ChatGPT")
 
-uploaded_files = st.file_uploader("Selecione até 100 arquivos PDF", type="pdf", accept_multiple_files=True)
+uploaded_files = st.file_uploader(
+    "Selecione até 100 arquivos PDF", 
+    type="pdf", 
+    accept_multiple_files=True
+)
 
 if uploaded_files:
     if len(uploaded_files) > 100:
@@ -37,7 +41,10 @@ if uploaded_files:
         uploaded_files = uploaded_files[:100]
 
     st.markdown(f"📁 {len(uploaded_files)} arquivos PDF selecionados.")
-    st.markdown('<span style="color:hotpink">🌸 Agora é só apertar o botão e iniciar a extração 🚀</span>', unsafe_allow_html=True)
+    st.markdown(
+        '<span style="color:hotpink">🌸 Agora é só apertar o botão e iniciar a extração 🚀</span>', 
+        unsafe_allow_html=True
+    )
 
     if st.button("🚀 Iniciar Extração"):
         resultados = []
