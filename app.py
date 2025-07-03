@@ -7,7 +7,8 @@ from lib import extrator
 st.set_page_config(page_title="PANDA_PDF", layout="centered")
 
 # ----- LOGIN SIMPLES -----
-senha_correta = "Luna_Pipoca"  # Altere para sua senha desejada
+senha_correta = "rosa123"  # Altere para sua senha desejada
+
 if "logado" not in st.session_state:
     st.session_state["logado"] = False
 
@@ -17,7 +18,6 @@ if not st.session_state["logado"]:
     if st.button("Entrar"):
         if senha_digitada == senha_correta:
             st.session_state["logado"] = True
-            st.experimental_rerun()
         else:
             st.error("Senha incorreta! Tente novamente.")
     st.stop()
