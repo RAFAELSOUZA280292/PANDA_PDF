@@ -2,9 +2,27 @@ import streamlit as st
 import pandas as pd
 import tempfile
 import os
-from lib import extrator  # Seu extrator.py deve estar dentro da pasta lib/
+from lib import extrator
 
 st.set_page_config(page_title="PANDA_PDF", layout="centered")
+
+# ----- LOGIN SIMPLES -----
+senha_correta = "rosa123"  # Altere para sua senha desejada
+if "logado" not in st.session_state:
+    st.session_state["logado"] = False
+
+if not st.session_state["logado"]:
+    st.title("🐼 PANDA_PDF - Login")
+    senha_digitada = st.text_input("Digite a senha para acessar:", type="password")
+    if st.button("Entrar"):
+        if senha_digitada == senha_correta:
+            st.session_state["logado"] = True
+            st.experimental_rerun()
+        else:
+            st.error("Senha incorreta! Tente novamente.")
+    st.stop()
+
+# ----- APP PRINCIPAL -----
 st.title("🐼 PANDA_PDF - Extração com ChatGPT")
 
 uploaded_files = st.file_uploader("Selecione até 100 arquivos PDF", type="pdf", accept_multiple_files=True)
@@ -34,7 +52,6 @@ if uploaded_files:
 
                         df_parcial = extrator.processar_pdfs(tempdir)
 
-                        # Verifica se houve erro no conteúdo
                         if "Erro no arquivo" in df_parcial["TÍTULO"].iloc[0]:
                             erros.append({
                                 "arquivo": file.name,
