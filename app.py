@@ -7,7 +7,7 @@ from lib import extrator
 st.set_page_config(page_title="PANDA_PDF", layout="centered")
 
 # ----- LOGIN SIMPLES -----
-senha_correta = "rosa123"  # Altere para sua senha desejada
+senha_correta = "Luna_Pipoca"  # Altere para sua senha desejada
 if "logado" not in st.session_state:
     st.session_state["logado"] = False
 
