@@ -2,12 +2,38 @@ import streamlit as st
 import pandas as pd
 import tempfile
 import os
-from lib import extrator  # Seu extrator.py deve estar dentro da pasta lib/
+from lib import extrator
 
 st.set_page_config(page_title="PANDA_PDF", layout="centered")
+
+SENHA_CORRETA = "rosa123"
+
+# Inicializa estado de login
+if "logado" not in st.session_state:
+    st.session_state.logado = False
+
+def pagina_login():
+    st.title("🐼 PANDA_PDF - Login")
+    senha = st.text_input("Digite a senha para acessar:", type="password")
+    if st.button("Entrar"):
+        if senha == SENHA_CORRETA:
+            st.session_state.logado = True
+            st.experimental_rerun()
+        else:
+            st.error("Senha incorreta! Tente novamente.")
+    st.stop()
+
+if not st.session_state.logado:
+    pagina_login()
+
+# --- Se chegou aqui, está logado ---
 st.title("🐼 PANDA_PDF - Extração com ChatGPT")
 
-uploaded_files = st.file_uploader("Selecione até 100 arquivos PDF", type="pdf", accept_multiple_files=True)
+uploaded_files = st.file_uploader(
+    "Selecione até 100 arquivos PDF", 
+    type="pdf", 
+    accept_multiple_files=True
+)
 
 if uploaded_files:
     if len(uploaded_files) > 100:
@@ -15,7 +41,10 @@ if uploaded_files:
         uploaded_files = uploaded_files[:100]
 
     st.markdown(f"📁 {len(uploaded_files)} arquivos PDF selecionados.")
-    st.markdown('<span style="color:hotpink">🌸 Agora é só apertar o botão e iniciar a extração 🚀</span>', unsafe_allow_html=True)
+    st.markdown(
+        '<span style="color:hotpink">🌸 Agora é só apertar o botão e iniciar a extração 🚀</span>', 
+        unsafe_allow_html=True
+    )
 
     if st.button("🚀 Iniciar Extração"):
         resultados = []
@@ -34,7 +63,6 @@ if uploaded_files:
 
                         df_parcial = extrator.processar_pdfs(tempdir)
 
-                        # Verifica se houve erro no conteúdo
                         if "Erro no arquivo" in df_parcial["TÍTULO"].iloc[0]:
                             erros.append({
                                 "arquivo": file.name,
