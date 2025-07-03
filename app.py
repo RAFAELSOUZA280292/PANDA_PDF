@@ -6,19 +6,22 @@ from lib import extrator
 
 st.set_page_config(page_title="PANDA_PDF", layout="centered")
 
-senha_correta = "rosa123"  # Altere para a senha desejada
+senha_correta = "rosa123"
 
 if "logado" not in st.session_state:
     st.session_state["logado"] = False
 
 if not st.session_state["logado"]:
     st.title("🐼 PANDA_PDF - Login")
-    senha_digitada = st.text_input("Digite a senha para acessar:", type="password", key="senha_input")
-
-    if st.button("Entrar"):
+    
+    with st.form("login_form"):
+        senha_digitada = st.text_input("Digite a senha para acessar:", type="password")
+        submitted = st.form_submit_button("Entrar")
+    
+    if submitted:
         if senha_digitada == senha_correta:
             st.session_state["logado"] = True
-            st.experimental_rerun()  # Recarrega a página para atualizar a sessão
+            st.experimental_rerun()
         else:
             st.error("Senha incorreta! Tente novamente.")
     st.stop()
