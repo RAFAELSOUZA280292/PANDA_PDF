@@ -10,6 +10,9 @@ if "logado" not in st.session_state:
 if not st.session_state.logado:
     st.title("🐼 PANDA_PDF - Login")
     senha = st.text_input("Digite a senha para acessar:", type="password")
+
+    st.write(f"Senha digitada (para debug): '{senha}'")  # Para mostrar espaços ou caracteres invisíveis
+
     if st.button("Entrar"):
         if senha == SENHA:
             st.session_state.logado = True
@@ -18,6 +21,5 @@ if not st.session_state.logado:
             st.error("Senha incorreta! Tente novamente.")
     st.stop()
 
-# Aqui começa o app após login
 st.title("🐼 PANDA_PDF - App Principal")
 st.write("Se você está vendo isso, fez login com sucesso!")
