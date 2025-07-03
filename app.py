@@ -26,7 +26,7 @@ if "logado" not in st.session_state:
 # 4. Bloco de Controle de Acesso (Login)
 # Se o usuário não estiver logado, exibe o formulário de login e interrompe a execução do restante do app.
 if not st.session_state["logado"]:
-    st.title("�� PANDA_PDF - Login")
+    st.title("🐼 PANDA_PDF - Login")
     
     with st.form("login_form"):
         senha_digitada = st.text_input("Digite a senha para acessar:", type="password")
