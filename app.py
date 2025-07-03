@@ -6,7 +6,7 @@ from lib import extrator
 
 st.set_page_config(page_title="PANDA_PDF", layout="centered")
 
-senha_correta = "rosa123"
+senha_correta = "Luna_Pipoca"
 
 if "logado" not in st.session_state:
     st.session_state["logado"] = False
