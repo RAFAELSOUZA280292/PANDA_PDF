@@ -110,7 +110,7 @@ if uploaded_files:
                 if erros:
                     pd.DataFrame(erros).to_excel(writer, index=False, sheet_name="erros")
             st.download_button(
-                "�� Baixar Excel",
+                "📊 Baixar Excel",
                 data=open(tmp.name, "rb"),
                 file_name="resultado_panda_pdf.xlsx"
             )
