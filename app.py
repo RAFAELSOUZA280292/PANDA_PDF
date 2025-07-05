@@ -52,7 +52,7 @@ if st.session_state.extraction_results is None:
 
         st.markdown(f"📁 {len(uploaded_files)} arquivos PDF selecionados.")
         st.markdown(
-            '<span style="color:hotpink">�� Agora é só apertar o botão e iniciar a extração 🚀</span>',
+            '<span style="color:hotpink">🐵 Agora é só apertar o botão e iniciar a extração 🚀</span>',
             unsafe_allow_html=True
         )
 
