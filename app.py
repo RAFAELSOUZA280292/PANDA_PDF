@@ -8,7 +8,7 @@ from lib import extrator
 st.set_page_config(page_title="PANDA_PDF", layout="centered")
 
 # ----- Login simples -----
-senha_correta = st.secrets.get("SENHA_APP", "rosa123")
+senha_correta = st.secrets.get("SENHA_APP", "Luna_Pipoca")
 
 if "logado" not in st.session_state:
     st.session_state.logado = False
