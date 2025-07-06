@@ -68,7 +68,7 @@ if st.session_state.extraction_results is None:
 
                                 df_parcial, tokens_usados = extrator.processar_pdfs(tempdir)
                                 tokens_total += tokens_usados
-                                custo_total_usd += (tokens_usados / 1000) * 0.0015  # preço para gpt-3.5-turbo input
+                                custo_total_usd += (tokens_usados / 1000) * 0.0015
 
                                 if not df_parcial.empty and "Erro no arquivo" in df_parcial["TÍTULO"].iloc[0]:
                                     erros.append({"arquivo": file.name, "erro": df_parcial["E-MAIL"].iloc[0]})
@@ -109,12 +109,16 @@ else:
     custo_reais = custo_usd * 6
     custo_por_email = (custo_reais / len(df_final)) if not df_final.empty else 0
 
+    custo_usd_fmt = f"{custo_usd:.4f}"
+    custo_reais_fmt = f"{custo_reais:.2f}".replace(".", ",")
+    custo_por_email_fmt = f"{custo_por_email:.2f}".replace(".", ",")
+
     st.markdown(f"""
     💰 **Consumo da API OpenAI:**
 
     - Tokens usados: `{tokens_total}`
-    - Custo estimado: **≈ USD ${custo_usd:.4f}** ≈ **R$ {custo_reais:.2f}**
-    - Custo médio por e-mail: **R$ {custo_por_email:.2f}**
+    - Custo estimado: ≈ USD {custo_usd_fmt}  ⇒  R$ {custo_reais_fmt}
+    - Custo médio por e-mail: R$ {custo_por_email_fmt}
     """)
 
     if not df_final.empty or erros:
