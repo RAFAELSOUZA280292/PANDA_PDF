@@ -47,8 +47,8 @@ if st.session_state.extraction_results is None:
         if st.button("🚀 Iniciar Extração"):
             resultados = []
             erros = []
-
-            saldo_inicial = extrator.obter_saldo_usado()
+            tokens_total = 0
+            custo_total_usd = 0.0
             progresso = st.progress(0, text="Iniciando...")
             total = len(uploaded_files)
 
@@ -66,7 +66,9 @@ if st.session_state.extraction_results is None:
                                 with open(caminho_pdf, "wb") as f:
                                     f.write(file.read())
 
-                                df_parcial = extrator.processar_pdfs(tempdir)
+                                df_parcial, tokens_usados = extrator.processar_pdfs(tempdir)
+                                tokens_total += tokens_usados
+                                custo_total_usd += (tokens_usados / 1000) * 0.0015  # preço para gpt-3.5-turbo input
 
                                 if not df_parcial.empty and "Erro no arquivo" in df_parcial["TÍTULO"].iloc[0]:
                                     erros.append({"arquivo": file.name, "erro": df_parcial["E-MAIL"].iloc[0]})
@@ -77,22 +79,13 @@ if st.session_state.extraction_results is None:
 
                         progresso.progress(atual / total, text=f"Processando {atual} de {total} PDFs")
 
-            saldo_final = extrator.obter_saldo_usado()
-            custo_total_usd = saldo_final - saldo_inicial
-            custo_total_brl = custo_total_usd * 6
-
             df_final = pd.concat(resultados, ignore_index=True) if resultados else pd.DataFrame()
-            emails_extraidos = len(df_final)
-            custo_por_email = (custo_total_brl / emails_extraidos) if emails_extraidos > 0 else 0
-
             st.session_state.extraction_results = {
                 "df_final": df_final,
                 "erros": erros,
                 "uploaded_count": total,
-                "custo_usd": round(custo_total_usd, 4),
-                "custo_brl": round(custo_total_brl, 2),
-                "custo_por_email": round(custo_por_email, 2),
-                "emails_extraidos": emails_extraidos
+                "tokens_total": tokens_total,
+                "custo_usd": round(custo_total_usd, 4)
             }
             st.rerun()
 else:
@@ -100,24 +93,29 @@ else:
     df_final = results["df_final"]
     erros = results["erros"]
     uploaded_count = results["uploaded_count"]
+    tokens_total = results["tokens_total"]
     custo_usd = results["custo_usd"]
-    custo_brl = results["custo_brl"]
-    custo_por_email = results["custo_por_email"]
-    emails_extraidos = results["emails_extraidos"]
 
     st.success("✅ Extração finalizada!")
 
     st.markdown("---")
     st.markdown(
-        f"**📊 Resumo da Extração:**\n- Total de PDFs enviados: **{uploaded_count}**\n- Total de Autores/E-mails extraídos: **{emails_extraidos}**"
+        f"**📊 Resumo da Extração:**\n- Total de PDFs enviados: **{uploaded_count}**\n- Total de Autores/E-mails extraídos: **{len(df_final)}**"
     )
     if erros:
         st.warning(f"⚠️ {len(erros)} arquivo(s) tiveram erro durante a extração.")
-
-    st.markdown(
-        f"\n💰 **Consumo da API OpenAI:**\n- Total gasto: **${custo_usd:.4f}** ≈ **R$ {custo_brl:.2f}**\n- Custo médio por e-mail: **R$ {custo_por_email:.2f}**"
-    )
     st.markdown("---")
+
+    custo_reais = custo_usd * 6
+    custo_por_email = (custo_reais / len(df_final)) if not df_final.empty else 0
+
+    st.markdown(f"""
+    💰 **Consumo da API OpenAI:**
+
+    - Tokens usados: `{tokens_total}`
+    - Custo estimado: **≈ USD ${custo_usd:.4f}** ≈ **R$ {custo_reais:.2f}**
+    - Custo médio por e-mail: **R$ {custo_por_email:.2f}**
+    """)
 
     if not df_final.empty or erros:
         now = datetime.now().strftime("%d.%m.%Y_%H.%M")
