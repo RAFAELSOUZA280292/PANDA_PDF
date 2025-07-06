@@ -4,7 +4,6 @@ import tempfile
 import os
 from lib import extrator
 from datetime import datetime
-import openai
 
 # Configuração da página
 st.set_page_config(page_title="PANDA_PDF", layout="centered")
@@ -31,7 +30,6 @@ if not st.session_state.logado:
 if "extraction_results" not in st.session_state:
     st.session_state.extraction_results = None
 
-# Interface principal
 st.title("🐼 PANDA_PDF - Extração com IA")
 
 if st.session_state.extraction_results is None:
@@ -51,8 +49,7 @@ if st.session_state.extraction_results is None:
             progresso = st.progress(0, text="Iniciando...")
             total = len(uploaded_files)
 
-            # Obtem saldo inicial antes da extração
-            saldo_inicial = openai.Billing.retrieve().get("hard_limit_usd", 0)
+            saldo_inicial = extrator.obter_saldo_usado()
 
             with st.spinner("🔍 Extraindo informações dos PDFs..."):
                 lotes = [uploaded_files[i:i+50] for i in range(0, total, 50)]
@@ -81,21 +78,18 @@ if st.session_state.extraction_results is None:
 
             df_final = pd.concat(resultados, ignore_index=True) if resultados else pd.DataFrame()
 
-            # Obtem saldo final após a extração
-            saldo_final = openai.Billing.retrieve().get("hard_limit_usd", 0)
-            saldo_gasto_usd = max(0, saldo_inicial - saldo_final)
-            saldo_gasto_brl = round(saldo_gasto_usd * 6, 2)
-
-            emails_extraidos = df_final["E-MAIL"].notna().sum() if not df_final.empty else 0
-            custo_por_email = round(saldo_gasto_brl / emails_extraidos, 2) if emails_extraidos > 0 else 0
+            saldo_final = extrator.obter_saldo_usado()
+            custo_usd = saldo_final - saldo_inicial
+            custo_reais = round(custo_usd * 6, 2)
+            total_emails = len(df_final)
+            custo_por_email = round(custo_reais / total_emails, 4) if total_emails else 0
 
             st.session_state.extraction_results = {
                 "df_final": df_final,
                 "erros": erros,
                 "uploaded_count": total,
-                "saldo_usd": saldo_gasto_usd,
-                "custo_reais": saldo_gasto_brl,
-                "custo_email": custo_por_email
+                "custo_reais": custo_reais,
+                "custo_por_email": custo_por_email
             }
             st.rerun()
 else:
@@ -103,9 +97,8 @@ else:
     df_final = results["df_final"]
     erros = results["erros"]
     uploaded_count = results["uploaded_count"]
-    saldo_gasto_usd = results.get("saldo_usd", 0)
-    saldo_gasto_brl = results.get("custo_reais", 0)
-    custo_por_email = results.get("custo_email", 0)
+    custo_reais = results["custo_reais"]
+    custo_por_email = results["custo_por_email"]
 
     st.success("✅ Extração finalizada!")
 
@@ -113,14 +106,11 @@ else:
     st.markdown(
         f"**📊 Resumo da Extração:**\n- Total de PDFs enviados: **{uploaded_count}**\n- Total de Autores/E-mails extraídos: **{len(df_final)}**"
     )
+    st.markdown(f"💰 Custo estimado: **R${custo_reais}**  |  💸 Por e-mail: **R${custo_por_email}**")
+
     if erros:
         st.warning(f"⚠️ {len(erros)} arquivo(s) tiveram erro durante a extração.")
     st.markdown("---")
-
-    # Mostrar custo
-    st.markdown(f"💰 **Custo estimado:** {saldo_gasto_brl:.2f} R$")
-    if custo_por_email:
-        st.markdown(f"📧 **Custo por e-mail extraído:** {custo_por_email:.2f} R$")
 
     if not df_final.empty or erros:
         now = datetime.now().strftime("%d.%m.%Y_%H.%M")
