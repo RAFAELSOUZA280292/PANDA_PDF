@@ -3,6 +3,7 @@ import pandas as pd
 import tempfile
 import os
 from lib import extrator
+from datetime import datetime
 
 # Configuração da página
 st.set_page_config(page_title="PANDA_PDF", layout="centered")
@@ -29,8 +30,18 @@ if not st.session_state.logado:
 if "extraction_results" not in st.session_state:
     st.session_state.extraction_results = None
 
+# Carrega histórico existente se houver
+historico_path = "historico_extracoes.csv"
+historico_df = pd.read_csv(historico_path) if os.path.exists(historico_path) else pd.DataFrame(columns=["Data/Hora", "PDFs Enviados", "Autores Extraídos", "Erros"])
+
 # Interface principal
 st.title("🐼 PANDA_PDF - Extração com IA")
+
+if st.button("🔍 Ver Histórico de Extrações"):
+    if historico_df.empty:
+        st.info("Nenhum histórico encontrado.")
+    else:
+        st.dataframe(historico_df[::-1], use_container_width=True)
 
 if st.session_state.extraction_results is None:
     uploaded_files = st.file_uploader("Selecione até 100 arquivos PDF", type="pdf", accept_multiple_files=True)
@@ -98,6 +109,19 @@ else:
     st.markdown("---")
 
     if not df_final.empty or erros:
+        now = datetime.now()
+        nome_arquivo = f"Panda_PDF_{now.strftime('%d.%m.%Y_%H.%M')}.xlsx"
+
+        # Registra no histórico
+        nova_linha = pd.DataFrame.from_records([{
+            "Data/Hora": now.strftime("%d/%m/%Y %H:%M"),
+            "PDFs Enviados": uploaded_count,
+            "Autores Extraídos": len(df_final),
+            "Erros": len(erros)
+        }])
+        historico_df = pd.concat([historico_df, nova_linha], ignore_index=True)
+        historico_df.to_csv(historico_path, index=False)
+
         with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
             with pd.ExcelWriter(tmp.name, engine="xlsxwriter") as writer:
                 if not df_final.empty:
@@ -107,9 +131,9 @@ else:
 
             with open(tmp.name, "rb") as f_excel:
                 st.download_button(
-                    "💾 Baixar Excel",
+                    "📅 Baixar Excel",
                     data=f_excel.read(),
-                    file_name="resultado_panda_pdf.xlsx",
+                    file_name=nome_arquivo,
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     key="download_excel_button"
                 )
