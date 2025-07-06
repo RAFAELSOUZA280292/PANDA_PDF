@@ -1,12 +1,15 @@
 import os
 import openai
+import dotenv
 import pandas as pd
 from PyPDF2 import PdfReader
 
-# Cria o cliente OpenAI usando a chave da variável de ambiente
-client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Carrega a chave da API do arquivo .env
+dotenv.load_dotenv()
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# Prompt de instruções fixo
+client = openai.OpenAI()  # Compatível com openai>=1.0.0
+
 PROMPT_BASE = """
 Você é a IA PANDA, especializada em extrair informações de artigos científicos. 
 Sua função é ler o texto de um artigo científico e devolver uma tabela com três colunas:
@@ -23,7 +26,9 @@ Regras:
 def extrair_texto_pdf(caminho_pdf: str) -> str:
     leitor = PdfReader(caminho_pdf)
     texto = ""
-    for pagina in leitor.pages:
+    for i, pagina in enumerate(leitor.pages):
+        if i >= 3:  # Limite de segurança: apenas as 3 primeiras páginas
+            break
         texto += pagina.extract_text() or ""
     return texto.strip()
 
@@ -32,46 +37,54 @@ def processar_pdfs(pasta_temp: str) -> pd.DataFrame:
     if not arquivos:
         raise Exception("Nenhum PDF encontrado na pasta temporária.")
 
-    todos_dados = []
+    caminho_pdf = os.path.join(pasta_temp, arquivos[0])
+    texto = extrair_texto_pdf(caminho_pdf)
 
-    for arquivo in arquivos:
-        try:
-            caminho_pdf = os.path.join(pasta_temp, arquivo)
-            texto = extrair_texto_pdf(caminho_pdf)
+    if not texto:
+        return pd.DataFrame([{
+            "TÍTULO": "Erro no arquivo",
+            "AUTOR": "",
+            "E-MAIL": "Texto vazio ou ilegível"
+        }])
 
-            prompt = PROMPT_BASE + f"\n\nTexto do artigo:\n'''{texto}'''\n\nResponda somente com a tabela."
+    prompt = PROMPT_BASE + f"\n\nTexto do artigo:\n'''{texto}'''\n\nResponda somente com a tabela."
 
-            resposta = client.chat.completions.create(
-                model="gpt-4o",
-                messages=[
-                    {"role": "system", "content": "Você é um assistente especializado em dados científicos."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0
-            )
+    try:
+        resposta = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "Você é um assistente especializado em dados científicos."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0
+        )
 
-            conteudo = resposta.choices[0].message.content
-            df = markdown_para_dataframe(conteudo)
-            todos_dados.append(df)
-        
-        except Exception as e:
-            # Em caso de erro, adiciona linha com erro no DataFrame
-            todos_dados.append(pd.DataFrame([{
-                "TÍTULO": f"Erro no arquivo: {arquivo}",
-                "AUTOR": "",
-                "E-MAIL": f"{str(e)}"
-            }]))
+        conteudo = resposta.choices[0].message.content
 
-    return pd.concat(todos_dados, ignore_index=True)
+        return markdown_para_dataframe(conteudo)
+
+    except Exception as e:
+        return pd.DataFrame([{
+            "TÍTULO": "Erro no arquivo",
+            "AUTOR": "",
+            "E-MAIL": str(e)
+        }])
 
 def markdown_para_dataframe(tabela_markdown: str) -> pd.DataFrame:
     linhas = tabela_markdown.strip().split("\n")
     linhas = [l for l in linhas if "|" in l]
-    
+
     dados = []
-    for linha in linhas[2:]:  # pula cabeçalho e separador
+    for linha in linhas[2:]:  # Ignora cabeçalho e separador
         partes = [parte.strip() for parte in linha.split("|")[1:-1]]
         if len(partes) == 3:
             dados.append(partes)
+
+    if not dados:
+        return pd.DataFrame([{
+            "TÍTULO": "Erro no arquivo",
+            "AUTOR": "",
+            "E-MAIL": "Tabela não reconhecida pelo modelo"
+        }])
 
     return pd.DataFrame(dados, columns=["TÍTULO", "AUTOR", "E-MAIL"])
