@@ -3,14 +3,15 @@ import openai
 import dotenv
 import pandas as pd
 from PyPDF2 import PdfReader
+from datetime import date
 import requests
 
-# Carrega a chave da API do arquivo .env (local) ou do ambiente Streamlit
+# Carrega a chave da API do arquivo .env
 dotenv.load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
-
 client = openai.OpenAI(api_key=api_key)
 
+# Prompt base fixo
 PROMPT_BASE = """
 Você é a IA PANDA, especializada em extrair informações de artigos científicos. 
 Sua função é ler o texto de um artigo científico e devolver uma tabela com três colunas:
@@ -27,9 +28,7 @@ Regras:
 def extrair_texto_pdf(caminho_pdf: str, max_paginas: int = 3) -> str:
     leitor = PdfReader(caminho_pdf)
     texto = ""
-    for i, pagina in enumerate(leitor.pages):
-        if i >= max_paginas:
-            break
+    for pagina in leitor.pages[:max_paginas]:
         texto += pagina.extract_text() or ""
     return texto.strip()
 
@@ -45,7 +44,7 @@ def processar_pdfs(pasta_temp: str) -> pd.DataFrame:
         return pd.DataFrame([{
             "TÍTULO": "Erro no arquivo",
             "AUTOR": "",
-            "E-MAIL": "PDF sem texto extraível"
+            "E-MAIL": "Texto não extraído"
         }])
 
     prompt = PROMPT_BASE + f"\n\nTexto do artigo:\n'''{texto}'''\n\nResponda somente com a tabela."
@@ -59,10 +58,8 @@ def processar_pdfs(pasta_temp: str) -> pd.DataFrame:
             ],
             temperature=0
         )
-
         conteudo = resposta.choices[0].message.content
         return markdown_para_dataframe(conteudo)
-
     except Exception as e:
         return pd.DataFrame([{
             "TÍTULO": "Erro no arquivo",
@@ -83,18 +80,18 @@ def markdown_para_dataframe(tabela_markdown: str) -> pd.DataFrame:
     return pd.DataFrame(dados, columns=["TÍTULO", "AUTOR", "E-MAIL"])
 
 def obter_saldo_usado() -> float:
-    """Consulta o uso de créditos da API da OpenAI (sem consumir tokens)."""
+    """
+    Consulta o uso acumulado do dia corrente da API OpenAI (em USD).
+    """
     try:
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-        }
-        response = requests.get(
-            "https://api.openai.com/v1/dashboard/billing/usage",
-            headers=headers
-        )
-        if response.status_code == 200:
-            data = response.json()
-            return float(data.get("total_usage", 0)) / 100.0  # vem em centavos
+        hoje = date.today().isoformat()
+        url = f"https://api.openai.com/v1/dashboard/billing/usage?start_date={hoje}&end_date={hoje}"
+        headers = {"Authorization": f"Bearer {api_key}"}
+        resp = requests.get(url, headers=headers)
+        if resp.status_code == 200:
+            data = resp.json()
+            total = float(data.get("total_usage", 0)) / 100.0  # vem em centavos
+            return total
     except Exception:
         pass
     return 0.0
