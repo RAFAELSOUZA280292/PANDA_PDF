@@ -4,6 +4,7 @@ import tempfile
 import os
 from lib import extrator
 from datetime import datetime
+import openai
 
 # Configuração da página
 st.set_page_config(page_title="PANDA_PDF", layout="centered")
@@ -30,18 +31,8 @@ if not st.session_state.logado:
 if "extraction_results" not in st.session_state:
     st.session_state.extraction_results = None
 
-# Carrega histórico existente se houver
-historico_path = "historico_extracoes.csv"
-historico_df = pd.read_csv(historico_path) if os.path.exists(historico_path) else pd.DataFrame(columns=["Data/Hora", "PDFs Enviados", "Autores Extraídos", "Erros"])
-
 # Interface principal
 st.title("🐼 PANDA_PDF - Extração com IA")
-
-if st.button("🔍 Ver Histórico de Extrações"):
-    if historico_df.empty:
-        st.info("Nenhum histórico encontrado.")
-    else:
-        st.dataframe(historico_df[::-1], use_container_width=True)
 
 if st.session_state.extraction_results is None:
     uploaded_files = st.file_uploader("Selecione até 100 arquivos PDF", type="pdf", accept_multiple_files=True)
@@ -59,6 +50,9 @@ if st.session_state.extraction_results is None:
             erros = []
             progresso = st.progress(0, text="Iniciando...")
             total = len(uploaded_files)
+
+            # Obtem saldo inicial antes da extração
+            saldo_inicial = openai.Billing.retrieve().get("hard_limit_usd", 0)
 
             with st.spinner("🔍 Extraindo informações dos PDFs..."):
                 lotes = [uploaded_files[i:i+50] for i in range(0, total, 50)]
@@ -86,10 +80,22 @@ if st.session_state.extraction_results is None:
                         progresso.progress(atual / total, text=f"Processando {atual} de {total} PDFs")
 
             df_final = pd.concat(resultados, ignore_index=True) if resultados else pd.DataFrame()
+
+            # Obtem saldo final após a extração
+            saldo_final = openai.Billing.retrieve().get("hard_limit_usd", 0)
+            saldo_gasto_usd = max(0, saldo_inicial - saldo_final)
+            saldo_gasto_brl = round(saldo_gasto_usd * 6, 2)
+
+            emails_extraidos = df_final["E-MAIL"].notna().sum() if not df_final.empty else 0
+            custo_por_email = round(saldo_gasto_brl / emails_extraidos, 2) if emails_extraidos > 0 else 0
+
             st.session_state.extraction_results = {
                 "df_final": df_final,
                 "erros": erros,
-                "uploaded_count": total
+                "uploaded_count": total,
+                "saldo_usd": saldo_gasto_usd,
+                "custo_reais": saldo_gasto_brl,
+                "custo_email": custo_por_email
             }
             st.rerun()
 else:
@@ -97,6 +103,9 @@ else:
     df_final = results["df_final"]
     erros = results["erros"]
     uploaded_count = results["uploaded_count"]
+    saldo_gasto_usd = results.get("saldo_usd", 0)
+    saldo_gasto_brl = results.get("custo_reais", 0)
+    custo_por_email = results.get("custo_email", 0)
 
     st.success("✅ Extração finalizada!")
 
@@ -108,19 +117,14 @@ else:
         st.warning(f"⚠️ {len(erros)} arquivo(s) tiveram erro durante a extração.")
     st.markdown("---")
 
-    if not df_final.empty or erros:
-        now = datetime.now()
-        nome_arquivo = f"Panda_PDF_{now.strftime('%d.%m.%Y_%H.%M')}.xlsx"
+    # Mostrar custo
+    st.markdown(f"💰 **Custo estimado:** {saldo_gasto_brl:.2f} R$")
+    if custo_por_email:
+        st.markdown(f"📧 **Custo por e-mail extraído:** {custo_por_email:.2f} R$")
 
-        # Registra no histórico
-        nova_linha = pd.DataFrame.from_records([{
-            "Data/Hora": now.strftime("%d/%m/%Y %H:%M"),
-            "PDFs Enviados": uploaded_count,
-            "Autores Extraídos": len(df_final),
-            "Erros": len(erros)
-        }])
-        historico_df = pd.concat([historico_df, nova_linha], ignore_index=True)
-        historico_df.to_csv(historico_path, index=False)
+    if not df_final.empty or erros:
+        now = datetime.now().strftime("%d.%m.%Y_%H.%M")
+        nome_arquivo = f"Panda_PDF_{now}.xlsx"
 
         with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
             with pd.ExcelWriter(tmp.name, engine="xlsxwriter") as writer:
@@ -131,7 +135,7 @@ else:
 
             with open(tmp.name, "rb") as f_excel:
                 st.download_button(
-                    "📅 Baixar Excel",
+                    "💾 Baixar Excel",
                     data=f_excel.read(),
                     file_name=nome_arquivo,
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
